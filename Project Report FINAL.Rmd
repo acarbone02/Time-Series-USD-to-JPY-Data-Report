@@ -1,0 +1,384 @@
+---
+title: " \\vspace{1in} USD/JPY: An Spot Exchange Rate Evaluation"
+subtitle: "PSTAT 174 Final Project"
+author: "Alexander Carbone (acarbone@ucsb.edu)"
+date: "`r Sys.Date()`  \\vspace{2.5in}"
+output: pdf_document
+urlcolor: blue
+---
+
+```{r packages load-in, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library(tidyr)
+library(astsa)
+library(xts)
+library(lubridate)
+library(quantmod)
+library(timetk)
+library(fGarch)
+```
+
+# Abstract:
+
+"In the global market, a country's prosperity is measured by different indexes—e.g. GDP per capita, the Gini coefficient, total money supply, etc.—but all of these economic indicators are tied to one crucial factor: the relative power of exchanged currency. As the Bretton-standard was axed, currencies became free-floating and fiat, leaving their trading markets up to interpretation of commonly traded currencies. Mainly, a country's currency bared the implications of devaluation due to economic leverage of superpower countries. As such, the close examination of how an exchange rate between two countries is crucial to link macroeconomic variables and outlook of the emerging market [(1)](https://fbj.springeropen.com/articles/10.1186/s43093-023-00189-1). 
+
+To better understand the findings of the previous research, we will observe the highly monitored exchange of USD to JPY. Japan is an already developed country, but is a major trading partner with the US. The country is also representative of smaller countries in Asia, rather than using China or India for the Asian market. We examine the historical monthly exchange rate starting from November 1996 to May 2023. The methods employed are the SARIMA and GARCH modeling process to forecast the next 12 months of exchange rate data. We find that over the next 12 months, both models show the Japanese Yen will appreciate against the US Dollar."
+
+\newpage
+
+# 1) Introduction:
+
+## 1.1 Background
+Our time series data was pulled from Yahoo Finance [(2)](https://finance.yahoo.com/quote/JPY=X/) (under ticker JPY=X), which started recording foreign exchange for Japanese Yen in 10/30/1996. The currency pair of USD for Yen is the third most traded spot exchange in the Forex market. We chose Yen over major currencies like the British Pound and Chinese Yuan due to the relative sizes of each of their markets and for the sake of simplicity / interpretation. The form of Yen is that of Western decimalization or base 10, so conversion betwixt the currencies is often clean.
+
+## 1.2 A Brief History of the Yen:
+The earliest comparable archaic Japanese currency is **sen** [(3)](https://en.wikipedia.org/wiki/1_sen_coin), which was introduced in 1871 under the New Currency Act. The introduction of sen was to create a western style decimal system based on units of yen. One sen was a 1/100th of a yen and was a bronze coin; however, it was only considered legal tender when its amount equaled to one yen. It is important to recognize that *yen* mentioned here is **different from the modern yen traded today**.
+
+Sen continued to circulate and be refined up until Japan's defeat in World War II. Their postwar economy invalidated the worth of yen and the price of goods rapidly garnered copious growths of inflation. As spoils of war, it was left to the US to sort out Japan's economy and they introduced the the Bretton Woods system. The Bretton Woods system largely relied on the gold standard, where $35 dollars purchased one troy ounce of gold. Currencies' values depended on their convertibility to USD and the gold standard. Under it, it declared that yen was strictly set to trade **one US Dollar for 360 Yen**.
+
+However, on August 15, 1971, the United States dropped the gold standard, which killed the Bretton Woods system. Fixed currencies such as the Japanese yen then became free-floating. In response, Japan's government had to set in place regulatory measures to wrest control over their currency. As pictured in this plot by FRED [(4)](https://fred.stlouisfed.org/graph/?g=RIqt), recessions (in gray) occurred often, while the spot price of yen slowly decreased. A notable event during this period is the 1986-1991 Japanese asset price bubble [(5)](https://en.wikipedia.org/wiki/Japanese_asset_price_bubble), which oversaw major economic reform and purge of corruption in the government. Eventually, the Japanese yen stabilized enough such that foreign investors were comfortable in trading the currency. This is where our Yahoo Finance data starts from and what we consider to be *modern yen*. 
+
+## 1.3 Methods
+In this paper, we followed the Box-Jenkins methodology [(6)](https://www.ncss.com/wp-content/themes/ncss/pdf/Procedures/NCSS/The_Box-Jenkins_Method.pdf) to fit two models and forecast the next twelve time steps ahead. The models chosen are the SARIMA (Seasonal Autoregressive Integrated Moving Average) and GARCH (Generalized Autoregressive Conditional Heteroskedasticity) models. We are using SARIMA instead of ARIMA as we expect the time series to have seasonal components and have a more robust estimation. We choose GARCH as our second model as we expect the data to be highly volatile and not have constant conditional variance at all periods of time.
+
+## 1.4 Outlook
+The project aims to predict the future twelve months of exchange rates using forecasting. We are not claiming that the models we fit are entirely representative of the process, but rather are curious how the yen may act over an extended period of time. As such, our conclusion is grounded in speculation, similar to how investors in current time use technical analysis to forecast. Again, the purpose is to simulate how this financial asset may move over twelve months, rather than creating definitive models that closely fit the data. As such, we will see that both models will speculate an appreciation of the Yen against the dollar over the twelve month period. 
+
+\newpage
+
+# 2) Data Background:
+
+## 2.1 Purpose of the Data
+
+We are interested in looking at the time series data of the USD/JPY exchange rate pulled from Yahoo Finance. As mentioned previously, the data for the exchange rate only began after the Japanese Yen was stable enough to be majorly traded and warranted recording. All of the exchange rate values reflect the closing price for that day. The first point in the data starts on October 30, 1996 and the last data point is May 17, 2023. The original data only contains dates that are weekdays since financial assets are not publicly traded during the weekend. The total number of examined trading days is 6,927.
+
+## 2.2 Data Refinement
+
+It should be noted that missing values do exist and appear to be random, likely because someone forgot to note the price. These mainly appear very early during the first few recorded years, but decline over time.
+
+Although the data is weekdays only, we are interested only in the monthly data of the series, not the daily data. We want monthly data as the daily values have minuscule changes and monthly changes are more representative overall. We also recognize the series may be seasonal, and a monthly period is more suitable than a weekly or daily range within the year. Because of this, we must perform some manipulations to the data to make it monthly.
+
+The first step taken was to insert the missing dates for the weekends. Because we want monthly data, we have to choose a day present in all months; it was a recurring issue that at least one month over the 27-year period fell in a weekend and was skipped. We want all the data points to be equally spaced, so the dates for weekends were introduced. The total number of observations changed from 6,927 to 9,696 and introduced missing values in between the data.
+
+To solve this, we simply copied the date's previous value, since no trading activity occurs on weekends. This still applies to natural missing values, as we expect very little change in the exchange price for that trading day. Once the data were whole, we selected the first day of each month (e.g. 05/01/2020) to get our monthly data. This took our total value of 9,696 daily closing prices to 319 monthly closing prices. Throughout the conversion process, dates were appended to the closing prices to make the data an xts object.
+
+
+## 2.3 Data Interpretation
+Trading currencies are part of the Forex market. In Forex, there are spot, forwards, and futures markets, each of which trade based on the time period speculated. For this project, we are concerned with spot prices: the price of a currency being traded currently. Currencies are always transacted in pairs. For example, you can trade Pesos for US dollars (first trade) and then trade those for British pounds (second trade). This process is also reversible, and many currency pairs exist. 
+
+Currency pairs are written in the form of XXX/YYY, where XXX represents the base currency and YYY is the quote currency. The base currency is always one unit of money, and the quoted currency is how much units one unit of the base currency can purchase. In our case, our currency pair is USD/JPY because we want to trade US Dollars for Japanese Yen.
+
+Currently, one US Dollar trades around 138 Yen. If this values rises, then that means the Yen depreciated (grew weaker) and the US Dollar appreciated (grew stronger) relative to Yen. The reverse is true if the value goes down. Again, we can speculate if the quoted currency will appreciate or depreciate based on global and local economic action. Based on our speculation, we can make reasonable trades in the Forex market to secure a profit or hedge against risks.
+
+\newpage
+
+# 3) Methodology:
+## 3.1 SARIMA (p,d,q) X (P,D,Q)[s] model
+
+The core principle behind a time series lies within the idea that it can be deconstructed into individual factors, each of which contribute to how it behaves. These components draw from concepts of trend, seasonality, cyclical behavior, and randomness; all of which are influenced by scalars and initial values. Therefore, a time series is a process that can be modeled and be predicted.
+
+ARIMA stands for **autoregressive integrated moving average**. The autoregressive part (AR) examines the number of past or lagged values, from a point, that are important in order to predict future observations. This parameter is denoted by *p*. The integrated part (I) examines the difference between two values (of some lag value) and the rate at which it changes. This allows us to examine integration factors higher than one, as it is similar to taking higher derivatives of a function. Having integration is normal if the data is not stationary. It is denoted by *d*. Finally, the moving average section (MA) notes how a value differs from an average of previous values (residuals). Moving averages mainly concern with the conditional variance of the time series over a set period of time. This is denoted by *q*.
+
+While ARIMA modeling is powerful, it does not capture the essence of seasonality in a series. Often, a time series is monthly data, and its seasonal pattern can be very long. While we can adjust our AR and MA values to account for higher lagged values, this makes the model very complex to compute and runs the risk of overfitting. This is why the base ARIMA model ignores seasonality to simplify the process and reduce errors from its estimation. If it is clear that the data has seasonality, then we must turn to the SARIMA model.
+
+The SARIMA process is broken into two parts: non-seasonal and seasonal components. The non-seasonal components are from the ARIMA process and uses (p,d,q) parameters. The seasonal component is very similar to the ARIMA process, except it applies it on a seasonal window. It makes the assumption that a previous seasonal window will bear some resemblance to the next window, suggesting a form of correlation between the lagged values. Like the ARIMA process, it takes parameters (P,D,Q) ascertained the same way over a seasonal window [s]. Adding seasonality to the modelling process makes our fitting process more robust and accurate. We will compare two SARIMA models based on best AIC and BIC and select the better model.
+
+## 3.2 GARCH model
+
+For a time series, we hold that the mean and unconditional variance must be constant for all time values to be weakly stationary; but there is also the conditional variance, which we must interpret. For a normal ARMA model (d=0), it assumes that the conditional variance is homoscedastic or is constant. In most models, this will hold true; however, financial time series (e.g. the price of an option or equity) are heavily influenced by volatility. Many unpredictable factors contribute to the price movement, mainly arising from real-time events and speculations of investors. Due to this, it is expected that the conditional variance will be heteroscedastic or not constant. Thereby, the time series is a stochastic process, not suited by ARMA modeling. We know our data is heteroscedastic during periods of recession, so the model is applicable.
+
+To remedy this problem, the GARCH model was created to incorporate volatility into the modeling process. Essentially, it takes an ARMA (p,q) model and extracts the residuals. The residuals are then modified by constants estimated and squared to create constant variance. This portion is the ARCH(p,q). Then we fit an AR(p) model and correct it with the ARCH(p,q) data. This produces the end result of the GARCH model. The process is displayed as AR(p)-ARCH(p,q).
+
+For our purposes, when we decide which model we will fit for the SARIMA process, we will use its p and q values for our GARCH model. The SARIMA we base it off will be the unselected SARIMA model.
+
+\newpage
+
+# 4) Results:
+## 4.1 SARIMA Model Implementation
+```{r, out.width="1\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
+include_graphics("Plots/original.pdf")
+```
+ 
+The figure above is the entire monthly exchange rate displayed as a time series graph. From it, we can see that there are periods where the price tends to rise by a few yen and return back over a length of a few years, suggesting a seasonality.Stationarity for the series is uncertain because of this. In the data, it seems that the most drastic changes occurred over three observations, so we will choose that as our [s] value.  We will have to confirm in the ACF and PACF graphs. In the graph, we see two interesting points, at time index 150 and 305. 
+
+At the period from index 150 to 200 corresponds to the 2008 financial crisis. This is the only time we see the Japanese Yen actually appreciate greatly since the US was majorly affected by the event. Eventually, the US recovered and it returned to normal levels of exchange. The period from 305 to the last point is Japan experiencing major economic issues. The reason for this is due to high inflation persisting from COVID. Japan has not fully recovered from COVID and is currently still working to curb the inflation growth rate; hence, the current exchange rate for USD/JPY is high.
+
+```{r, out.width="0.9\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
+include_graphics("Plots/acf2.pdf")
+```
+
+As we see in the ACF, it does not decay exponentially. So unfortunately, the series is not stationary. The PACF appears to be normal though, having only lag one be significant and then decaying afterwards. Since the series is not stationary, we will consider taking the difference.
+
+```{r, out.width="0.75\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
+include_graphics("Plots/diff2.pdf")
+```
+
+We've found that taking the second difference of the series at lag 3 produced the lowest variance. We did take the log of the series prior to the difference, but it had little effect due to the exchange rate being inherently base 10. Right now we know that d=0, D=2, and s=3.
+
+Within the second-difference data, there are still major spikes where recessions took place. These places are likely where the constant conditional variance assumption is violated. In particular, this is also at the tail end of the series where we are forecasting from. While we cannot do much about this in the SARIMA model, the GARCH model will handle this heteroscedasticity issue.
+
+```{r, out.width="0.75\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
+include_graphics("Plots/dacf2.pdf")
+```
+
+For the ACF plot of the second-difference data, it has significant seasonal lags at 3,6. So our max Q=2. For the lags between the seasonal markers, lag 2 is significant so max q=2. We see that for the PACF, the seasonal lags at 3,6,9,12,15 are all significantly above the confidence interval suggesting a max P=5. For the sake of computational and model complexity purposes, we will cap this to P=2 For the months in between those, we see at lag 2 it peaks out so we say a max p=2.
+
+```{r, echo=FALSE}
+fitting <- data.frame(a=c("52","53","16","58","17"),b=c(0,1,0,0,1),c=c(2,2,2,1,2),d=c(2,2,1,0,1),e=c(1,1,0,2,0),f=c(1693.567,1695.702,1695.793,1696.293,1697.311), g=c(1716.044,1721.926,1710.778,1711.278,1716.042))
+
+colnames(fitting) <- c("Model Number","P","Q","p","q","AIC","BIC")
+
+knitr::kable(fitting, booktabs=TRUE, caption="**Model Fitting with (2,0,2) X (2,2,2)[3]**")
+```
+
+With the max (p,d,q) X (P,D,Q)[s] values, we fitted every combination. Afterwords, we selected two models that had the best AIC and BIC values. Model one (52) had parameters of (2,0,1) X (0,2,2)[3], and model two's (16) parameters were (1,0,0) X (0,2,2)[3].
+
+## 4.2 Model Diagnostics and Comparison
+
+```{r, out.width="1\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
+include_graphics("Plots/model1.pdf")
+```
+
+```{r, out.width="1\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
+include_graphics("Plots/model2.pdf")
+```
+
+After selecting the models, we fitted the data once more and conducted diagnostics. For sake of space, model information and additional graphs are included in the **appendix** (section 6). For both models, they appear to be extremely similar in all counts. The residuals for both are mostly regular, with the exception of the outliers we noted earlier. Their ACFs both exponentially decay and their PACFs relatively stay at zero, but peak at lag 5 and 11. For their diagnostics, both model 1 and 2 have p-values above 0.05 for the box test; meaning we do not reject the null hypothesis and their residuals are independent. They also have significant p-values below 0.05 for the Shapiro-Wilk test, which means we reject the null hypothesis. Therefore the fitted data is **not normally distributed**. We expect this to the case as the data is a financial asset, which is not normally distributed. If did not reject the null hypothesis, then our data is akin to a random-walk.
+
+```{r, echo=FALSE}
+df <- data.frame(x=1:2, b=c(2.3443,0.042421), y=c(0.1257,0.8368), c=c(0.97559,0.96742), z=c(3.036e-05,1.371e-06), a=c("Yes","Yes"))
+colnames(df) <- c("Model", "X-squared","Box-Pierce p-value", "W", "Shapiro-Wilk p-value", "Normal Residuals?")
+knitr::kable(df, booktabs=TRUE, caption = "**Model Diagnostics**")
+```
+
+Between both of the models, they were almost the same in terms of diagnostics. Since there is not much of a difference, we proceeded with model 2 to forecast the data, since it is a simpler model.
+
+## 4.3 Forecasting
+
+As mentioned in the methodology section (3.2), we would base the GARCH parameters from the unselected model. This is done to verify what would be the difference if we corrected for heteroscedasticity. Since the SARIMA model had parameters (2,0,1) X (0,2,2)[3], the GARCH model as parameters AR(2)~ARCH(2,1). The related graphs and code are again detailed in the appendix. With the models fitted, we forecasted the next twelve data points.
+
+```{r, out.width="0.85\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
+include_graphics("Plots/forecast1.pdf")
+```
+
+For the SARIMA forecast, we see that over the next twelve months the Japanese yen will slowly appreciate against the US Dollar. The total change seems to be a total of 3 yen. However, the confidence intervals show that it can massively vary due to the recent sudden jump in exchange price.
+
+```{r, out.width="0.85\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
+include_graphics("Plots/forecast2.pdf")
+```
+
+For the GARCH forecast, it similarly displays the same trend. In this forecast, while the Yen will appreciate, the GARCH models predicts it will have a sharper descent ending around 130 yen. The confidence intervals are also much wider having a max of 164 yen to a min of 100 yen. This is likely due to the inclusion of heteroscedasticity in the model.
+
+\newpage
+
+# 5) Conclusion
+Our forecast for 12 months ahead for both the SARIMA and GARCH model shows the Japanese Yen with appreciate relative to the US dollar. The confidence intervals in both models are broad, suggesting that the inherent volatility is active after the sudden depreciation of Japanese Yen in the spot exchange rate.
+
+Our two models show that the recovery of the exchange will be a slow process. Likely due to the nature of the asset being currencies, the USD to Yen exchange does not have dramatic increases on a daily/monthly basis unless a major economic event occurs; it is then we expect the rate to see changes of around 4-6% over a three month period. Since our models rely heavily on the volatility of the rates and cannot predict economic action, the best it can do is show how it may behave without such events. As such, it is entirely possible that these predictions will not match with the real rates when the time comes.
+
+In terms of investment strategy, the speculation of the Japanese Yen appreciating over the next twelve months calls for a long option strategy. If we were to enter in a call option or future option that exchanges Yen for US dollars, and buy the agreed amount of Yen now, then we should expect to earn a positive profit; as the inherent value of Yen has appreciated and allows us to exchange for more units of US Dollars.
+
+In general, we should expect that the Japanese Yen should be recover after its initial rise during the last 6 months. While our forecasting models suggest that the Yen could rise as high as 160, that would be the all-time high the exchange rate has seen since the yen became free-floating. It is a safe assumption that unless Japan's economy undergoes major turmoil (e.g. defaulting on national debt, failing to resolve their inflation issue, embargoes on global trade, etc.), the exchange should not persist beyond the 140 mark and decrease over time.
+
+\newpage
+
+# 6) Appendix
+## 6.1 References (Vancouver Style)
+
+1) Jamil MN, Rasheed A, Maqbool A, Mukhtar Z. Cross-cultural study the macro variables and its impact on exchange rate regimes. Future Business Journal. 2023;9(1). doi:10.1186/s43093-023-00189-1 
+
+2) USD/JPY (JPY=x) live rate, Chart & News [Internet]. Yahoo!; 2023 [cited 2023 Jun 13]. Available from: https://finance.yahoo.com/quote/JPY=X/ 
+
+3) 1 sen coin [Internet]. Wikimedia Foundation; 2023 [cited 2023 Jun 13]. Available from: https://en.wikipedia.org/wiki/1_sen_coin
+
+4) Board of Governors of the Federal Reserve System (US), Japanese Yen to U.S. Dollar Spot Exchange Rate [DEXJPUS], retrieved from FRED, Federal Reserve Bank of St. Louis; https://fred.stlouisfed.org/series/DEXJPUS, June 13, 2023.
+
+5) Japanese asset price bubble [Internet]. Wikimedia Foundation; 2023 [cited 2023 Jun 13]. Available from: https://en.wikipedia.org/wiki/Japanese_asset_price_bubble 
+
+6) [Internet]. NCSS Statistical Software; [cited 2023 Jun 14]. Available from: https://www.ncss.com/wp-content/themes/ncss/pdf/Procedures/NCSS/The_Box-Jenkins_Method.pdf 
+
+
+## 6.2 Additional Figures
+### 6.2.1 Model 1
+```{r, echo=FALSE}
+model1 <- data.frame(a=c("","s.e"),b=c(0.0565,0.0621),c=c(0.9371,0.0618),d=c(0.8874,0.0794),e=c(-1.9987,0.0499),f=c(0.9993,0.0499))
+
+colnames(model1) <- c("","AR1","AR2","MA1","SMA1","SMA2")
+
+knitr::kable(model1, booktabs=TRUE, caption="Model 1 Coefficients")
+```
+
+```{r, out.width="1\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
+include_graphics("Plots/append1.pdf")
+```
+
+\newpage
+
+### 6.2.2 Model 2
+```{r, echo=FALSE}
+model2 <- data.frame(a=c("","s.e"),b=c(0.9921,0.0088),c=c(-1.9964,0.0587),d=c(0.9973,0.0596))
+
+colnames(model2) <- c("","AR1","SMA1","SMA2")
+
+knitr::kable(model2, booktabs=TRUE, caption="Model 2 Coefficients")
+```
+
+```{r, out.width="1\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
+include_graphics("Plots/append2.pdf")
+```
+
+### 6.2.3 GARCH Model
+```{r, out.width="1\\linewidth", include=TRUE, fig.align="center", echo=FALSE}
+include_graphics("Plots/append3.pdf")
+```
+
+## 6.3 R Code
+### Data Write-in
+```{r data write-in, eval=FALSE, warning=FALSE, message=FALSE}
+# Pulling data from Yahoo Finance
+df_Assets <- getSymbols("JPY=X", from = "1996-01-31", to =
+                            "2023-05-18")
+
+# Storing the prices in one array
+prices <- purrr::map("JPY=X", function(x) Ad(get(x)))
+prices <- purrr::reduce(prices, merge)
+  
+prices <- prices %>%  
+  tk_tbl() %>%            # transform into tibble
+  pad_by_time() %>%       # add the missing records
+  tk_xts()
+
+# Take the average between dates to fill missing values
+prices <- na.locf(prices) 
+
+monthly_data <- prices[seq(as.Date("1996-11-01"), length = 319, by = "months")]
+
+# CSV for stock chart data
+inv_period <- time(monthly_data)
+monthly_data <- cbind(c(0), monthly_data)
+monthly_data$c.0. <- as.character(inv_period) 
+colnames(monthly_data) <- c("date","USD_JPY")
+  
+write.csv(monthly_data, file = "USD_JPY.csv", row.names = F)
+```
+
+### Data Load-in (Time-Series Plot, ACF/PACf Plot)
+```{r data load-in, eval=FALSE, results='hide'}
+# Loading in the CSV data
+USD_JPY <- read.csv("USD_JPY.csv")
+USD_JPY <- as.ts(xts(x=USD_JPY$USD_JPY, order.by = as.Date(USD_JPY$date),
+                     start="1996-11-01", end="2023-05-01"))
+
+# Plots for Time Series and ACF/PACF
+plot(USD_JPY, main="Monthly Exchange Rate from November 1996 to May 2023")
+acf2(USD_JPY)
+```
+
+\newpage
+
+### Difference of Time Series
+```{r difference, eval=FALSE}
+# Variance of USD_JPY
+var(log(USD_JPY))
+d.USD_JPY <- diff(log(USD_JPY), lag=3); var(d.USD_JPY)
+d2.USD_JPY <- diff(d.USD_JPY); var(d2.USD_JPY)
+d3.USD_JPY <- diff(d2.USD_JPY); var(d3.USD_JPY)
+
+# Plots
+plot(d2.USD_JPY, xlab="Time", ylab="USD/JPY d=2", 
+     main="Second-Order Difference of USD/JPY at lag 3")
+acf2(d2.USD_JPY, main="")
+```
+
+### Fitting Process
+```{r finding best models, warning=FALSE, eval=FALSE}
+# Fitting all possible models in from parameters
+df <- data.frame(expand.grid(P=0:2, Q=0:2, p=0:2, q=0:2), AIC=NA, BIC=NA)
+for (i in 1:nrow(df)) {
+m <- df[i, ]
+fit <- arima(USD_JPY, order=c(m$p, 0, m$q),
+seasonal=list(order=c(m$P, 2, m$Q), period=3),
+method="ML")
+df[i, ]$AIC <- fit$aic; df[i, ]$BIC <- BIC(fit)
+}
+
+# Display best 5 models for AIC and BIC
+df[order(df$AIC)[1:5], ]; df[order(df$BIC)[1:5], ]
+```
+
+### Model 1
+```{r, results='hide', eval=FALSE}
+# Fitting model 1
+model1 <- arima(USD_JPY, order=c(2, 0, 1),
+               seasonal=list(order=c(0, 2, 2), period=3),
+               method="ML")
+
+# Calculating the residuals of model 1
+res <- residuals(model1)
+par(mfrow=c(1, 3))
+
+# Plots of the residuals and ACF/PACF
+plot.ts(res, type="l", main="Residual Plot of Model 1")
+acf(res, main="ACF")
+pacf(res, main="PACF")
+
+# Diagnostics of Model 1
+Box.test(res)
+par(mfrow=c(1, 2))
+hist(res, main = "Histogram")
+qqnorm(res); qqline(res, col="blue")
+shapiro.test(res)
+```
+
+\newpage
+
+### Model 2
+```{r, results='hide', eval=FALSE}
+# Fitting model 2
+model2 <- arima(USD_JPY, order=c(1, 0, 0),
+               seasonal=list(order=c(0, 2, 2), period=3),
+               method="ML")
+
+# Calculating the residuals of model 2
+res <- residuals(model2)
+par(mfrow=c(1, 3))
+
+# Plots of the residuals and ACF/PACF
+plot.ts(res, type="l", main="Residual Plot of Model 2")
+acf(res, main="ACF")
+pacf(res, main="PACF")
+
+# Diagnostics of Model 2
+Box.test(res)
+par(mfrow=c(1, 2))
+hist(res, main = "Histogram")
+qqnorm(res); qqline(res, col="blue")
+shapiro.test(res)
+```
+
+### GARCH
+```{r, results='hide', eval=FALSE}
+# Fitting the GARCH model
+summary(USD_JPY.g <- garchFit(~arma(2,0)+garch(2,1), data=USD_JPY,
+cond.dist='std'))
+```
+
+```{r garch plot, eval=FALSE}
+# specific plots of the GARCH fit
+par(mfrow=c(1, 3))
+fGarch::plot(USD_JPY.g, which=c(9,10,11))
+```
+
+### Forecasting
+```{r sarima forecast, results='hide', eval=FALSE}
+# SARIMA forecast
+pred.tr <- sarima.for(USD_JPY, n.ahead=12, plot.all=F,
+p=1, d=0, q=0, P=0, D=2, Q=2, S=3, main="SARIMA (1,0,0) X (0,2,2) Forecast")
+```
+
+```{r garch forecast, eval=FALSE, results='hide', warning=FALSE}
+# GARCH forecast
+par(mfrow=c(1,1))
+fGarch::predict(USD_JPY.g, n.ahead=12, plot=T, nx=100, mse="cond")
+```
